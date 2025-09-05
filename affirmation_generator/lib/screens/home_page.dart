@@ -3,378 +3,562 @@ import 'package:flutter/services.dart';
 import 'dart:math';
 import '../models/affirmation.dart';
 import '../data/affirmation_data.dart';
-import '../widgets/animated_affirmation_card.dart';
-import '../widgets/category_selector.dart';
-import '../widgets/particle_background.dart';
-import '../widgets/meditation_timer.dart';
-import '../widgets/mood_tracker.dart';
 
 class MyHomePage extends StatefulWidget {
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage>
-    with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late AnimationController _pulseController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _pulseAnimation;
-
-  List<String> _selectedCategories = [];
-  List<Affirmation> _filteredAffirmations = [];
-  Affirmation? _currentAffirmation;
-  int _dailyCount = 0;
-  int _streak = 0;
-  bool _isDarkMode = false;
-  bool _enableAnimations = true;
-  bool _enableHaptics = true;
-  bool _isGenerating = false;
-  int _currentTabIndex = 0;
+class _MyHomePageState extends State<MyHomePage> {
+  int _currentScreenIndex = 0;
+  String _userName = "Steven";
+  String _currentDate = "Today is June 14, 2022";
+  
+  // Color palette from the design
+  static const Color lightBlueGrey = Color(0xFFE8F0F2);
+  static const Color dustyRose = Color(0xFFD4A5A5);
+  static const Color mediumBlueGrey = Color(0xFF8FA3A8);
+  static const Color darkBlueGrey = Color(0xFF5A6B70);
+  static const Color lightGrey = Color(0xFFF5F5F5);
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
-    _loadAffirmations();
-    _fadeController.forward();
-  }
-
-  void _initializeAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOut,
-    ));
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutBack,
-    ));
-
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-
-    _slideController.forward();
-    _pulseController.repeat(reverse: true);
-  }
-
-  void _loadAffirmations() {
-    setState(() {
-      _filteredAffirmations = AffirmationData.affirmations;
-      if (_filteredAffirmations.isNotEmpty) {
-        _currentAffirmation = _filteredAffirmations.first;
-      }
-    });
-  }
-
-  void _filterAffirmations() {
-    setState(() {
-      if (_selectedCategories.isEmpty) {
-        _filteredAffirmations = AffirmationData.affirmations;
-      } else {
-        _filteredAffirmations = AffirmationData.affirmations
-            .where((affirmation) => _selectedCategories.contains(affirmation.category))
-            .toList();
-      }
-    });
-  }
-
-  void _generateAffirmation() async {
-    if (_isGenerating) return;
-    
-    setState(() {
-      _isGenerating = true;
-    });
-
-    if (_enableHaptics) {
-      HapticFeedback.lightImpact();
-    }
-
-    // Animate out current affirmation
-    await _fadeController.reverse();
-    
-    // Generate new affirmation
-    if (_filteredAffirmations.isNotEmpty) {
-      final random = Random();
-      final newAffirmation = _filteredAffirmations[random.nextInt(_filteredAffirmations.length)];
-      
-      setState(() {
-        _currentAffirmation = newAffirmation;
-        _dailyCount++;
-      });
-    }
-
-    // Animate in new affirmation
-    await _fadeController.forward();
-    
-    setState(() {
-      _isGenerating = false;
-    });
-
-    if (_enableHaptics) {
-      HapticFeedback.mediumImpact();
-    }
-  }
-
-  void _onCategorySelectionChanged(List<String> selectedCategories) {
-    setState(() {
-      _selectedCategories = selectedCategories;
-    });
-    _filterAffirmations();
-  }
-
-  void _toggleDarkMode() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
-    if (_enableHaptics) {
-      HapticFeedback.selectionClick();
-    }
-  }
-
-  void _toggleAnimations() {
-    setState(() {
-      _enableAnimations = !_enableAnimations;
-    });
-    if (_enableHaptics) {
-      HapticFeedback.selectionClick();
-    }
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    _slideController.dispose();
-    _pulseController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: _isDarkMode ? ThemeData.dark() : ThemeData.light(),
-      child: Scaffold(
-        backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.grey[50],
-        appBar: AppBar(
-          title: const Text('✨ Affirmation Generator'),
-          backgroundColor: _isDarkMode ? Colors.grey[800] : Colors.white,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
-              onPressed: _toggleDarkMode,
+    return Scaffold(
+      backgroundColor: lightGrey,
+      body: SafeArea(
+        child: IndexedStack(
+          index: _currentScreenIndex,
+          children: [
+            _buildWelcomeScreen(),
+            _buildHomeScreen(),
+            _buildPlaylistScreen(),
+            _buildArticleScreen(),
+            _buildPracticesScreen(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  Widget _buildWelcomeScreen() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFFFF6B6B).withOpacity(0.8),
+            const Color(0xFF4ECDC4).withOpacity(0.8),
+            const Color(0xFF45B7D1).withOpacity(0.8),
+          ],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 60),
+            const Text(
+              'Welcome',
+              style: TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-            IconButton(
-              icon: Icon(_enableAnimations ? Icons.animation : Icons.pause),
-              onPressed: _toggleAnimations,
+            const SizedBox(height: 16),
+            const Text(
+              'Daily affirmations.',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white70,
+              ),
+            ),
+            const Text(
+              'Progress Checker.',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white70,
+              ),
+            ),
+            const Text(
+              'Your step forward.',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white70,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Peace is a click away',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: darkBlueGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Let\'s get started →',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: mediumBlueGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
+                'Have an account already? Log In',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                ),
+              ),
             ),
           ],
         ),
-        body: ParticleBackground(
-          enableAnimations: _enableAnimations,
-          particleColor: _isDarkMode ? Colors.white : Colors.blue[100]!,
-          child: SafeArea(
-            child: Column(
+      ),
+    );
+  }
+
+  Widget _buildHomeScreen() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Good Morning, $_userName',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: darkBlueGrey,
+                    ),
+                  ),
+                  Text(
+                    _currentDate,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: mediumBlueGrey,
+                    ),
+                  ),
+                ],
+              ),
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: dustyRose,
+                child: const Text(
+                  'S',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            'Today\'s Exercise',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: darkBlueGrey,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: dustyRose.withOpacity(0.3),
+            ),
+            child: const Center(
+              child: Text(
+                'Positivity',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: darkBlueGrey,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'More for you',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: darkBlueGrey,
+                ),
+              ),
+              Text(
+                'View All',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: mediumBlueGrey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
               children: [
-                // Stats Row
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatCard('Today', _dailyCount.toString(), Icons.today, Colors.blue),
-                      _buildStatCard('Streak', _streak.toString(), Icons.local_fire_department, Colors.orange),
-                      _buildStatCard('Total', '${_dailyCount + 42}', Icons.star, Colors.purple),
-                    ],
-                  ),
-                ),
-                
-                // Tab Navigation
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: _isDarkMode ? Colors.grey[800] : Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _buildTabButton(0, 'Affirmations', Icons.auto_awesome),
-                      _buildTabButton(1, 'Meditation', Icons.self_improvement),
-                      _buildTabButton(2, 'Mood', Icons.mood),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Tab Content
-                Expanded(
-                  child: IndexedStack(
-                    index: _currentTabIndex,
-                    children: [
-                      // Affirmations Tab
-                      Column(
-                        children: [
-                          // Category Selector
-                          CategorySelector(
-                            categories: AffirmationData.categories,
-                            selectedCategories: _selectedCategories,
-                            onSelectionChanged: _onCategorySelectionChanged,
-                            enableAnimations: _enableAnimations,
-                          ),
-                          
-                          // Main Affirmation Display
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: SlideTransition(
-                                position: _slideAnimation,
-                                child: FadeTransition(
-                                  opacity: _fadeAnimation,
-                                  child: _currentAffirmation != null
-                                      ? AnimatedAffirmationCard(
-                                          affirmation: _currentAffirmation!,
-                                          onTap: _generateAffirmation,
-                                          isSelected: true,
-                                          enableAnimations: _enableAnimations,
-                                        )
-                                      : Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(20),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.1),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 4),
-                                              ),
-                                            ],
-                                          ),
-                                          child: const Center(
-                                            child: Text(
-                                              'Tap to generate your first affirmation!',
-                                              style: TextStyle(fontSize: 18),
-                                            ),
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          
-                          // Action Buttons
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _buildActionButton(
-                                  'Generate',
-                                  Icons.auto_awesome,
-                                  _generateAffirmation,
-                                  Colors.blue,
-                                  isLoading: _isGenerating,
-                                ),
-                                _buildActionButton(
-                                  'Share',
-                                  Icons.share,
-                                  () {
-                                    if (_currentAffirmation != null) {
-                                      // TODO: Implement sharing
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Sharing feature coming soon!')),
-                                      );
-                                    }
-                                  },
-                                  Colors.green,
-                                ),
-                                _buildActionButton(
-                                  'Favorite',
-                                  Icons.favorite,
-                                  () {
-                                    // TODO: Implement favorites
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Favorites feature coming soon!')),
-                                    );
-                                  },
-                                  Colors.red,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      
-                      // Meditation Tab
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: MeditationTimer(
-                          enableAnimations: _enableAnimations,
-                          enableHaptics: _enableHaptics,
-                        ),
-                      ),
-                      
-                      // Mood Tracker Tab
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: SingleChildScrollView(
-                          child: MoodTracker(
-                            enableAnimations: _enableAnimations,
-                            enableHaptics: _enableHaptics,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildExerciseCard('Peaceful'),
+                const SizedBox(height: 12),
+                _buildExerciseCard('Mindful'),
+                const SizedBox(height: 12),
+                _buildExerciseCard('Spiritual'),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseCard(String title) {
+    return Container(
+      height: 120,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: lightBlueGrey,
+      ),
+      child: Center(
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: darkBlueGrey,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildPlaylistScreen() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Made for $_userName',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: darkBlueGrey,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: dustyRose.withOpacity(0.3),
+            ),
+            child: const Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.play_circle_fill,
+                    color: darkBlueGrey,
+                    size: 48,
+                  ),
+                  SizedBox(width: 16),
+                  Text(
+                    'Positivity',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: darkBlueGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Playlist',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: darkBlueGrey,
+                ),
+              ),
+              Text(
+                '4 songs',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: mediumBlueGrey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              children: [
+                _buildSongItem('The Recipe', 'Sir'),
+                _buildSongItem('My Mind', 'Yebba'),
+                _buildSongItem('Let Go', 'Ark Patrol'),
+                _buildSongItem('WAYS', 'Jhene Aiko'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSongItem(String title, String artist) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: dustyRose,
+            ),
+            child: const Icon(
+              Icons.music_note,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: darkBlueGrey,
+                  ),
+                ),
+                Text(
+                  artist,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: mediumBlueGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.more_vert,
+            color: mediumBlueGrey,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArticleScreen() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: lightBlueGrey,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  '15 min read',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: darkBlueGrey,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: dustyRose,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Article',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Balance',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: darkBlueGrey,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '"The Importance of symmetry"',
+            style: TextStyle(
+              fontSize: 18,
+              color: mediumBlueGrey,
+            ),
+          ),
+          const Text(
+            'by Beth Thomaz',
+            style: TextStyle(
+              fontSize: 16,
+              color: mediumBlueGrey,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: lightBlueGrey,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.directions_walk,
+                size: 64,
+                color: mediumBlueGrey,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.',
+            style: TextStyle(
+              fontSize: 16,
+              color: darkBlueGrey,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+            style: TextStyle(
+              fontSize: 16,
+              color: darkBlueGrey,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPracticesScreen() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'My Practices',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: darkBlueGrey,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              children: [
+                _buildPracticeButton('Peace'),
+                _buildPracticeButton('Calm'),
+                _buildPracticeButton('Happy'),
+                _buildPracticeButton('Kind'),
+                _buildPracticeButton('Passion'),
+                _buildPracticeButton('Joy'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            height: 120,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: lightBlueGrey,
+            ),
+            child: const Center(
+              child: Text(
+                'Peaceful',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: darkBlueGrey,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPracticeButton(String practice) {
+    return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _isDarkMode ? Colors.grey[800] : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -385,22 +569,22 @@ class _MyHomePageState extends State<MyHomePage>
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 4),
           Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _isDarkMode ? Colors.white : Colors.black,
-            ),
-          ),
-          Text(
-            label,
+            'Master',
             style: TextStyle(
               fontSize: 12,
-              color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              color: mediumBlueGrey,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            practice,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: darkBlueGrey,
             ),
           ),
         ],
@@ -408,87 +592,59 @@ class _MyHomePageState extends State<MyHomePage>
     );
   }
 
-  Widget _buildTabButton(int index, String label, IconData icon) {
-    final isSelected = _currentTabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _currentTabIndex = index;
-          });
-          if (_enableHaptics) {
-            HapticFeedback.selectionClick();
-          }
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected 
-                ? (_isDarkMode ? Colors.blue[700] : Colors.blue[100])
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(25),
+  Widget _buildBottomNavigation() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: isSelected 
-                    ? (_isDarkMode ? Colors.white : Colors.blue[800])
-                    : (_isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                size: 20,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected 
-                      ? (_isDarkMode ? Colors.white : Colors.blue[800])
-                      : (_isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavItem(0, Icons.home, 'Home'),
+          _buildNavItem(1, Icons.library_music, 'Playlist'),
+          _buildNavItem(2, Icons.article, 'Article'),
+          _buildNavItem(3, Icons.self_improvement, 'Practices'),
+        ],
       ),
     );
   }
 
-  Widget _buildActionButton(
-    String label,
-    IconData icon,
-    VoidCallback onPressed,
-    Color color, {
-    bool isLoading = false,
-  }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      child: ElevatedButton.icon(
-        onPressed: isLoading ? null : onPressed,
-        icon: isLoading
-            ? SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : Icon(icon),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _currentScreenIndex == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentScreenIndex = index;
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? dustyRose : mediumBlueGrey,
+            size: 24,
           ),
-          elevation: 4,
-        ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isSelected ? dustyRose : mediumBlueGrey,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
